@@ -1,0 +1,34 @@
+name: Capture static builder error
+
+on:
+  pull_request:
+    types: [opened]
+
+permissions:
+  contents: write
+
+jobs:
+  capture:
+    if: github.event.pull_request.title == 'Capture static JetsVsDragons error'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: master
+          fetch-depth: 0
+
+      - name: Capture builder output
+        shell: bash
+        run: |
+          git show 4fbf477e95573b7956754988a63ce40204a3576e:index.html > index.html
+          set +e
+          node apply_static_patch.mjs > static-patch-error.txt 2>&1
+          status=$?
+          set -e
+          printf '\nexit_status=%s\n' "$status" >> static-patch-error.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add static-patch-error.txt
+          git commit -m "Capture static patch error"
+          git pull --rebase origin master
+          git push origin master
