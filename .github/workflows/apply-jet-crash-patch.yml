@@ -1,0 +1,46 @@
+name: Apply jet crash patch
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - apply_jet_crash_patch.py
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: master
+          fetch-depth: 0
+
+      - name: Apply patch
+        run: python3 apply_jet_crash_patch.py
+
+      - name: Validate JavaScript
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          html = Path('index.html').read_text(encoding='utf-8')
+          scripts = re.findall(r'<script type="module">(.*?)</script>', html, flags=re.S)
+          if len(scripts) != 1:
+              raise SystemExit(f'Expected one module script, found {len(scripts)}')
+          Path('/tmp/game-check.mjs').write_text(scripts[0], encoding='utf-8')
+          PY
+          node --check /tmp/game-check.mjs
+
+      - name: Commit to master
+        run: |
+          rm -f apply_jet_crash_patch.py .github/workflows/apply-jet-crash-patch.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Add jet crash and ejection sequence"
+          git push origin master
