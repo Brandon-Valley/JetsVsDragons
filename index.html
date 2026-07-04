@@ -612,7 +612,26 @@
     font-size: 11px;
     text-align: center;
   }
-  #pauseScreen, #gameOverScreen { display: none; }
+#musicPlayer {
+  position: fixed;
+  width: 1px;
+  height: 1px;
+  left: -9999px;
+  top: -9999px;
+  opacity: 0;
+  pointer-events: none;
+  border: 0;
+}
+#musicNowPlaying {
+  margin: -7px auto 14px;
+  max-width: 520px;
+  color: rgba(244, 239, 226, 0.74);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.035em;
+  line-height: 1.35;
+}
+#pauseScreen, #gameOverScreen { display: none; }
   #pauseScreen.visible, #gameOverScreen.visible { display: flex; }
   .hidden { display: none !important; }
   @media (max-width: 640px) {
@@ -648,9 +667,11 @@
   }
 }
 </script>
+<script src="https://w.soundcloud.com/player/api.js"></script>
 </head>
 <body>
 <canvas id="game"></canvas>
+<iframe id="musicPlayer" title="Aircraft game music" allow="autoplay"></iframe>
 
 <div id="startScreen" class="screen">
   <div class="card">
@@ -679,8 +700,11 @@
   <div class="card">
     <h1 style="font-size:clamp(34px,8vw,58px)">Paused</h1>
     <p class="subtitle">Resume this run or return to the main menu.</p>
+    <div id="musicNowPlaying">Aircraft soundtrack will begin when the mission starts.</div>
     <div class="menuActions">
       <button id="resumeBtn" class="secondaryBtn">Resume</button>
+      <button id="musicToggleBtn" class="secondaryBtn">Music: On</button>
+      <button id="musicNextBtn">Next Song</button>
       <button id="restartPauseBtn">Main Menu</button>
     </div>
   </div>
@@ -746,6 +770,19 @@ const GLASS_BREAK_SFX_URL = 'https://actions.google.com/sounds/v1/impacts/glass_
 const CONFETTI_MODULE_URL = 'https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/+esm';
 const INTERNET_SFX_ZIP_URL = 'https://opengameart.org/sites/default/files/Digital_SFX_Set.zip';
 const INTERNET_SFX_ZIP_URLS = [INTERNET_SFX_ZIP_URL, 'https://api.allorigins.win/raw?url=' + encodeURIComponent(INTERNET_SFX_ZIP_URL)];
+
+// AIRCRAFT_MUSIC_PLAYLIST_V1
+const GAME_MUSIC_TRACKS = [
+  { aircraft: 'F-16', title: 'How to Start an F-16', soundcloud: 'https://soundcloud.com/landon-blake-641292926/how-to-start-an-f-16-bully-in' },
+  { aircraft: 'F-14', title: 'How to Start the F-14 Tomcat', soundcloud: 'https://soundcloud.com/landon-blake-641292926/how-to-start-the-f-14-tomcat' },
+  { aircraft: 'F-16', title: 'How to Land an F-16', soundcloud: 'https://soundcloud.com/landon-blake-641292926/how-to-land-an-f-16-mary-ellen' },
+  { aircraft: 'AH-64', title: 'How to Fly an Apache', soundcloud: 'https://soundcloud.com/landon-blake-641292926/how-to-fly-an-apache-attack' },
+  { aircraft: 'A-10', title: 'How to Start an A-10', soundcloud: 'https://soundcloud.com/landon-blake-641292926/how-to-start-an-a-10-song' },
+  { aircraft: 'F-16', title: 'Eject! Eject! F-16', soundcloud: 'https://soundcloud.com/landon-blake-641292926/eject-eject-f-16-a-well-roll' },
+  { aircraft: 'F-22', title: 'How to Start the F-22', soundcloud: 'https://soundcloud.com/landon-blake-641292926/how-to-start-the-f-22-song-128' },
+  { aircraft: 'A-10', title: 'How to Arm and Fire the A-10', soundcloud: 'https://soundcloud.com/landon-blake-641292926/how-to-arm-and-fire-a-10-song' }
+];
+const GAME_MUSIC_VOLUME = 30;
 const USE_REMOTE_CLOUD_ASSET = false;
 const DRAGON_MIN_DISPLAY_SCALE = 2.0;
 const DRAGON_MAX_DISPLAY_SCALE = 10.0;
@@ -777,6 +814,10 @@ const overDragonBtn = document.getElementById('overDragonBtn');
 const overTargetBtn = document.getElementById('overTargetBtn');
 const resumeBtn = document.getElementById('resumeBtn');
 const pauseBtn = document.getElementById('pauseBtn');
+const musicPlayer = document.getElementById('musicPlayer');
+const musicToggleBtn = document.getElementById('musicToggleBtn');
+const musicNextBtn = document.getElementById('musicNextBtn');
+const musicNowPlaying = document.getElementById('musicNowPlaying');
 const healthFill = document.getElementById('healthFill');
 const healthText = document.getElementById('healthText');
 const waveLabel = document.getElementById('waveLabel');
@@ -843,6 +884,12 @@ let rollBurst = 0;
 let mountainHitCooldown = 0;
 const DRAGON_BURST_RECHARGE = 5.25;
 let audioCtx = null;
+let musicWidget = null;
+let musicReady = false;
+let musicShouldPlay = false;
+let musicTrackIndex = Math.floor(Math.random() * GAME_MUSIC_TRACKS.length);
+let musicEnabled = true;
+try { musicEnabled = localStorage.getItem('jetsVsDragonsMusicEnabled') !== 'false'; } catch (e) {}
 let internetSfxPromise = null;
 let internetSfxReady = false;
 let lastBoostActive = false;
@@ -967,6 +1014,7 @@ function init() {
   loadRemoteAssets();
   window.addEventListener('resize', onResize);
   setupControls();
+  initGameMusic();
   animate(0);
 }
 
@@ -1947,6 +1995,7 @@ function showModeChoice() {
   gameOverScreen.classList.remove('visible');
   hud.classList.add('hidden');
   controls.classList.add('hidden');
+  stopGameMusic();
   clearTargetMarkers();
 }
 
@@ -1975,6 +2024,7 @@ function startGame(mode = 'jet', side = null) {
   }
   if (!renderer) init();
   initAudio();
+  startGameMusic();
   if (mode === 'target') loadTargetBest();
   playGameSound('ui', 0.35, 520, 0.06, 'triangle', 0.04);
   startScreen.classList.add('hidden');
@@ -2214,7 +2264,9 @@ function setupControls() {
   overDragonBtn.addEventListener('click', () => startGame('dragon', 'dragon'));
   if (overTargetBtn) overTargetBtn.addEventListener('click', () => startGame('target', targetSide));
   resumeBtn.addEventListener('click', resumeGame);
-  pauseBtn.addEventListener('click', togglePause);
+pauseBtn.addEventListener('click', togglePause);
+if (musicToggleBtn) musicToggleBtn.addEventListener('click', toggleGameMusic);
+if (musicNextBtn) musicNextBtn.addEventListener('click', () => nextGameMusic(true));
 
   window.addEventListener('keydown', (e) => {
     input.keys.add(e.code);
@@ -3357,6 +3409,147 @@ function updateWorld(dt) {
   sun.position.z = player.pos.z + 180;
 }
 
+
+
+function soundCloudPlayerUrl(trackUrl) {
+  return 'https://w.soundcloud.com/player/?url=' + encodeURIComponent(trackUrl)
+    + '&auto_play=false&buying=false&download=false&sharing=false'
+    + '&show_artwork=false&show_comments=false&show_playcount=false'
+    + '&show_user=false&show_reposts=false&visual=false&hide_related=true';
+}
+
+function currentMusicTrack() {
+  return GAME_MUSIC_TRACKS[musicTrackIndex] || GAME_MUSIC_TRACKS[0];
+}
+
+function updateMusicUi(statusText = '') {
+  const track = currentMusicTrack();
+  if (musicToggleBtn) musicToggleBtn.textContent = musicEnabled ? 'Music: On' : 'Music: Off';
+  if (musicNextBtn) musicNextBtn.disabled = !musicReady;
+  if (!musicNowPlaying) return;
+  if (!musicEnabled) {
+    musicNowPlaying.textContent = 'Music is off.';
+  } else if (statusText) {
+    musicNowPlaying.textContent = statusText;
+  } else if (track) {
+    musicNowPlaying.textContent = 'Now playing: ' + track.aircraft + ' - ' + track.title;
+  }
+}
+
+function initGameMusic() {
+  if (!musicPlayer || GAME_MUSIC_TRACKS.length === 0) return;
+  musicPlayer.src = soundCloudPlayerUrl(currentMusicTrack().soundcloud);
+  updateMusicUi('Aircraft soundtrack is loading...');
+
+  let attempts = 0;
+  const connectWidget = () => {
+    attempts += 1;
+    if (!window.SC || !window.SC.Widget) {
+      if (attempts < 100) setTimeout(connectWidget, 100);
+      else updateMusicUi('Aircraft soundtrack could not load.');
+      return;
+    }
+
+    try {
+      musicWidget = window.SC.Widget(musicPlayer);
+      const events = window.SC.Widget.Events;
+      musicWidget.bind(events.READY, () => {
+        musicReady = true;
+        musicWidget.setVolume(GAME_MUSIC_VOLUME);
+        updateMusicUi();
+        if (musicShouldPlay && musicEnabled) musicWidget.play();
+      });
+      musicWidget.bind(events.PLAY, () => updateMusicUi());
+      musicWidget.bind(events.FINISH, () => nextGameMusic(true));
+      if (events.ERROR) {
+        musicWidget.bind(events.ERROR, () => {
+          updateMusicUi('Skipping an unavailable song...');
+          setTimeout(() => nextGameMusic(true), 700);
+        });
+      }
+    } catch (e) {
+      musicWidget = null;
+      updateMusicUi('Aircraft soundtrack could not load.');
+    }
+  };
+  connectWidget();
+
+  document.addEventListener('visibilitychange', () => {
+    if (!musicWidget || !musicReady || !musicEnabled) return;
+    if (document.hidden) musicWidget.pause();
+    else if (musicShouldPlay) musicWidget.play();
+  });
+}
+
+function loadCurrentMusicTrack(shouldPlay) {
+  const track = currentMusicTrack();
+  if (!track) return;
+  updateMusicUi('Loading: ' + track.aircraft + ' - ' + track.title);
+  if (!musicWidget || !musicReady) {
+    if (musicPlayer) musicPlayer.src = soundCloudPlayerUrl(track.soundcloud);
+    return;
+  }
+  try {
+    musicWidget.load(track.soundcloud, {
+      auto_play: !!(shouldPlay && musicEnabled),
+      buying: false,
+      download: false,
+      sharing: false,
+      show_artwork: false,
+      show_comments: false,
+      show_playcount: false,
+      show_user: false,
+      show_reposts: false,
+      visual: false,
+      hide_related: true,
+      callback: () => {
+        musicWidget.setVolume(GAME_MUSIC_VOLUME);
+        updateMusicUi();
+        if (shouldPlay && musicEnabled) musicWidget.play();
+      }
+    });
+  } catch (e) {
+    updateMusicUi('Skipping an unavailable song...');
+    setTimeout(() => nextGameMusic(shouldPlay), 700);
+  }
+}
+
+function startGameMusic() {
+  musicShouldPlay = true;
+  updateMusicUi();
+  if (!musicEnabled || !musicWidget || !musicReady) return;
+  try {
+    musicWidget.setVolume(GAME_MUSIC_VOLUME);
+    musicWidget.play();
+  } catch (e) {}
+}
+
+function stopGameMusic() {
+  musicShouldPlay = false;
+  if (!musicWidget || !musicReady) return;
+  try { musicWidget.pause(); } catch (e) {}
+}
+
+function toggleGameMusic() {
+  musicEnabled = !musicEnabled;
+  try { localStorage.setItem('jetsVsDragonsMusicEnabled', String(musicEnabled)); } catch (e) {}
+  updateMusicUi();
+  if (!musicWidget || !musicReady) return;
+  try {
+    if (musicEnabled && musicShouldPlay) {
+      musicWidget.setVolume(GAME_MUSIC_VOLUME);
+      musicWidget.play();
+    } else {
+      musicWidget.pause();
+    }
+  } catch (e) {}
+}
+
+function nextGameMusic(forcePlay = musicShouldPlay) {
+  if (GAME_MUSIC_TRACKS.length === 0) return;
+  musicTrackIndex = (musicTrackIndex + 1) % GAME_MUSIC_TRACKS.length;
+  loadCurrentMusicTrack(forcePlay && musicEnabled);
+}
 
 function initAudio() {
   if (!audioCtx) {
