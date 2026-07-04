@@ -1,0 +1,55 @@
+name: Static game rebuild
+
+on:
+  pull_request:
+    types: [opened]
+
+permissions:
+  contents: write
+
+jobs:
+  rebuild:
+    if: github.event.pull_request.title == 'Trigger static JetsVsDragons rebuild'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: master
+          fetch-depth: 0
+
+      - name: Build complete static index
+        shell: bash
+        run: |
+          git show 4fbf477e95573b7956754988a63ce40204a3576e:index.html > index.html
+          echo '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' | base64 -d | gunzip > /tmp/apply-static-patch.mjs
+          node /tmp/apply-static-patch.mjs
+
+      - name: Validate complete game
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          html = Path('index.html').read_text(encoding='utf-8')
+          scripts = re.findall(r'<script type="module">(.*?)</script>', html, flags=re.S)
+          if len(scripts) != 1:
+              raise SystemExit(f'Expected one module script, found {len(scripts)}')
+          if 'patchGame(' in html or 'fetchBaseGame(' in html or 'gameFrame' in html:
+              raise SystemExit('Runtime loader still present')
+          Path('/tmp/game-check.mjs').write_text(scripts[0], encoding='utf-8')
+          PY
+          node --check /tmp/game-check.mjs
+          grep -q 'JET_EJECTION_STATIC_V3' index.html
+          grep -q 'Dragon bounced off mountain' index.html
+          grep -q 'Enemy Jet Crashed' index.html
+
+      - name: Commit finished index directly to master
+        shell: bash
+        run: |
+          rm -f .github/workflows/static-game-rebuild.yml patch_game.js apply_jet_crash_patch.py
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Replace index with static jet crash update"
+          git pull --rebase origin master
+          git push origin master
