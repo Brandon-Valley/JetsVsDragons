@@ -1,0 +1,23 @@
+name: Show static builder error
+
+on:
+  pull_request:
+    types: [opened]
+
+permissions:
+  contents: read
+
+jobs:
+  show:
+    if: github.event.pull_request.title == 'Show static JetsVsDragons error'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run builder and show exact error
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          git clone -q "https://x-access-token:${GH_TOKEN}@github.com/Brandon-Valley/JetsVsDragons.git" repo
+          cd repo
+          git show 4fbf477e95573b7956754988a63ce40204a3576e:index.html > index.html
+          node apply_static_patch.mjs
