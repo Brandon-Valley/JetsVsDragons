@@ -1,0 +1,16 @@
+death sequence state: FOUND
+pause and resume music: FOUND
+death sequence animation loop: FOUND
+player mountain behavior: FOUND
+player jet death dispatch: FOUND
+music pause helpers: FOUND
+visibility music guard: FOUND
+ready music guard: FOUND
+loaded music guard: FOUND
+toggle music guard: FOUND
+next track guard: FOUND
+enemy jet mountain crash: FOUND
+enemy dragon mountain bounce: FOUND
+death sequence functions: FOUND
+target completion music: FOUND
+death music: FOUND
