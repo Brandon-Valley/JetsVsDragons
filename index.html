@@ -5,144 +5,505 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Jets vs Dragons</title>
 <style>
-  html, body {
-    margin: 0;
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
-    background: #05080d;
-    color: #f4efe2;
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  }
-  #boot {
-    position: fixed;
-    inset: 0;
-    display: grid;
-    place-items: center;
-    box-sizing: border-box;
-    padding: 24px;
-    text-align: center;
-    background: radial-gradient(circle at 50% 28%, #1a3443, #05080d 68%);
-  }
-  #boot h1 {
-    margin: 0;
-    font-size: clamp(34px, 9vw, 72px);
-    line-height: 0.92;
-    letter-spacing: -0.06em;
-    text-transform: uppercase;
-  }
-  #status {
-    margin: 18px auto 0;
-    max-width: 620px;
-    opacity: 0.76;
-    font-weight: 800;
-    line-height: 1.45;
-  }
-  #retry {
-    display: none;
-    margin: 20px auto 0;
-    border: 1px solid rgba(119, 212, 255, 0.7);
-    border-radius: 6px;
-    padding: 14px 24px;
-    color: #f4efe2;
-    background: #102b38;
-    font: inherit;
-    font-weight: 900;
-    text-transform: uppercase;
-  }
-  #gameFrame {
-    position: fixed;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    border: 0;
-    background: #05080d;
-  }
+  html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #05080d; color: #f4efe2; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+  #boot { position: fixed; inset: 0; display: grid; place-items: center; box-sizing: border-box; padding: 24px; text-align: center; background: radial-gradient(circle at 50% 28%, #1a3443, #05080d 68%); }
+  #boot h1 { margin: 0; font-size: clamp(34px, 9vw, 72px); line-height: .92; letter-spacing: -.06em; text-transform: uppercase; }
+  #status { margin: 18px auto 0; max-width: 620px; opacity: .76; font-weight: 800; line-height: 1.45; }
+  #retry { display: none; margin: 20px auto 0; border: 1px solid rgba(119,212,255,.7); border-radius: 6px; padding: 14px 24px; color: #f4efe2; background: #102b38; font: inherit; font-weight: 900; text-transform: uppercase; }
+  #gameFrame { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; background: #05080d; }
 </style>
 </head>
 <body>
-<div id="boot">
-  <div>
-    <h1>Jets vs Dragons</h1>
-    <div id="status">Loading combat systems...</div>
-    <button id="retry" type="button">Retry</button>
-  </div>
-</div>
+<div id="boot"><div><h1>Jets vs Dragons</h1><div id="status">Loading combat systems...</div><button id="retry" type="button">Retry</button></div></div>
 <script type="module">
-  import { patchGame } from './patch_game.js?v=2';
+function patchGame(source) {
+  let text = source;
 
-  const BASE_COMMIT = '4fbf477e95573b7956754988a63ce40204a3576e';
-  const statusEl = document.getElementById('status');
-  const retryBtn = document.getElementById('retry');
-
-  function decodeBase64Utf8(value) {
-    const clean = value.replace(/\s/g, '');
-    const binary = atob(clean);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-    return new TextDecoder().decode(bytes);
-  }
-
-  async function fetchBaseGame() {
-    const apiUrl = 'https://api.github.com/repos/Brandon-Valley/JetsVsDragons/contents/index.html?ref=' + BASE_COMMIT;
-    try {
-      const response = await fetch(apiUrl, {
-        cache: 'no-store',
-        headers: { Accept: 'application/vnd.github+json' }
-      });
-      if (!response.ok) throw new Error('GitHub API returned ' + response.status);
-      const data = await response.json();
-      if (!data || data.encoding !== 'base64' || !data.content) throw new Error('GitHub API returned invalid file data');
-      return decodeBase64Utf8(data.content);
-    } catch (apiError) {
-      const fallbackUrls = [
-        'https://cdn.jsdelivr.net/gh/Brandon-Valley/JetsVsDragons@' + BASE_COMMIT + '/index.html',
-        'https://raw.githubusercontent.com/Brandon-Valley/JetsVsDragons/' + BASE_COMMIT + '/index.html'
-      ];
-      let lastError = apiError;
-      for (const url of fallbackUrls) {
-        try {
-          const response = await fetch(url, { cache: 'no-store' });
-          if (!response.ok) throw new Error('Fallback returned ' + response.status);
-          return await response.text();
-        } catch (error) {
-          lastError = error;
-        }
-      }
-      throw lastError;
+  function replaceRequired(oldText, newText, label) {
+    if (!text.includes(oldText)) {
+      throw new Error('Missing game patch anchor: ' + label);
     }
+    text = text.replace(oldText, newText);
   }
 
-  async function launch() {
-    retryBtn.style.display = 'none';
-    statusEl.textContent = 'Loading combat systems...';
+  replaceRequired(
+    "let musicEnabled = true;\ntry { musicEnabled = localStorage.getItem('jetsVsDragonsMusicEnabled') !== 'false'; } catch (e) {}\nlet internetSfxPromise = null;",
+    "let musicEnabled = true;\ntry { musicEnabled = localStorage.getItem('jetsVsDragonsMusicEnabled') !== 'false'; } catch (e) {}\n\n// JET_EJECTION_SEQUENCE_V2\nlet jetDeathSequence = null;\nlet internetSfxPromise = null;",
+    'death sequence state'
+  );
 
-    try {
-      const source = await fetchBaseGame();
-      statusEl.textContent = 'Applying flight systems...';
-      const patched = patchGame(source);
+  replaceRequired(
+    "  for (const s of supplyDrops) scene.remove(s.group);\n  dragons = [];",
+    "  for (const s of supplyDrops) scene.remove(s.group);\n  if (jetDeathSequence && jetDeathSequence.group) scene.remove(jetDeathSequence.group);\n  jetDeathSequence = null;\n  dragons = [];",
+    'reset cleanup'
+  );
 
-      const frame = document.createElement('iframe');
-      frame.id = 'gameFrame';
-      frame.title = 'Jets vs Dragons game';
-      frame.allow = 'autoplay; fullscreen';
-      document.body.appendChild(frame);
+  replaceRequired(
+    "  controls.classList.add('hidden');\n  stopGameMusic();\n  clearTargetMarkers();",
+    "  controls.classList.add('hidden');\n  if (jetDeathSequence && jetDeathSequence.group) scene.remove(jetDeathSequence.group);\n  jetDeathSequence = null;\n  stopGameMusic();\n  clearTargetMarkers();",
+    'menu cleanup'
+  );
 
-      const frameDocument = frame.contentWindow.document;
-      frameDocument.open();
-      frameDocument.write(patched);
-      frameDocument.close();
+  replaceRequired(
+`function pauseGame() {
+  playGameSound('ui', 0.35, 360, 0.05, 'triangle', 0.04);
+  paused = true;
+  if (missileBtn) missileBtn.classList.remove('armed');
+  pauseScreen.classList.add('visible');
+}
+function resumeGame() {
+  playGameSound('ui', 0.35, 520, 0.05, 'triangle', 0.04);
+  paused = false;
+  pauseScreen.classList.remove('visible');
+  if (clock) clock.getDelta();
+}`,
+`function pauseGame() {
+  playGameSound('ui', 0.35, 360, 0.05, 'triangle', 0.04);
+  paused = true;
+  pauseGameMusic();
+  if (missileBtn) missileBtn.classList.remove('armed');
+  pauseScreen.classList.add('visible');
+}
+function resumeGame() {
+  playGameSound('ui', 0.35, 520, 0.05, 'triangle', 0.04);
+  paused = false;
+  pauseScreen.classList.remove('visible');
+  resumeGameMusic();
+  if (clock) clock.getDelta();
+}`,
+    'pause music'
+  );
 
-      document.getElementById('boot').remove();
-    } catch (error) {
-      console.error(error);
-      statusEl.textContent = 'The game could not launch: ' + (error && error.message ? error.message : String(error));
-      retryBtn.style.display = 'inline-block';
+  replaceRequired(
+    "  if (running && !paused && !gameOver && player) update(dt || 0.016);",
+    "  if (jetDeathSequence) updateJetDeathSequence(dt || 0.016);\n  else if (running && !paused && !gameOver && player) update(dt || 0.016);",
+    'death sequence animation'
+  );
+
+  replaceRequired(
+`  const playerMountainRadius = playerIsDragon() ? clamp(6.2 + getDragonScale(player) * 0.42, 7.0, 11.5) : 5.8;
+  if (projectileHitMountain(player.pos, playerMountainRadius)) {
+    player.pos.copy(previousPos);
+    player.pitch = Math.max(player.pitch, 0.16);
+    player.yaw += (joyX >= 0 ? -1 : 1) * 0.16;
+    player.speed = Math.max(player.baseSpeed * 0.58, player.speed * 0.66);
+    if (mountainHitCooldown <= 0) {
+      mountainHitCooldown = 0.65;
+      player.health = clamp(player.health - 7, 0, 100);
+      showMessage('Mountain collision');
+      playGameSound('hit', 0.58, 82, 0.10, 'sawtooth', 0.075);
+      spawnSpark(player.pos.clone().addScaledVector(forward, 3), 0xffd27a, 0.8, 0.55);
     }
+  }`,
+`  const playerMountainRadius = playerIsDragon() ? clamp(6.2 + getDragonScale(player) * 0.42, 7.0, 11.5) : 5.8;
+  if (projectileHitMountain(player.pos, playerMountainRadius)) {
+    if (playerIsJet()) {
+      beginJetDeath('Mountain impact');
+      return;
+    }
+
+    player.pos.copy(previousPos);
+    player.pitch = Math.max(player.pitch, 0.22);
+    player.yaw += (joyX >= 0 ? -1 : 1) * 0.22;
+    player.speed = Math.max(player.baseSpeed * 0.72, player.speed * 0.74);
+    if (mountainHitCooldown <= 0) {
+      mountainHitCooldown = 0.65;
+      showMessage('Dragon bounced off mountain');
+      playGameSound('hit', 0.34, 105, 0.07, 'triangle', 0.045);
+      spawnSpark(player.pos.clone().addScaledVector(forward, 3), 0xffd27a, 0.8, 0.55);
+    }
+  }`,
+    'player mountain behavior'
+  );
+
+  replaceRequired(
+    "  if (player.health <= 0) endGame();",
+    "  if (player.health <= 0) {\n    if (playerIsJet()) beginJetDeath('Aircraft destroyed');\n    else endGame();\n  }",
+    'player jet death'
+  );
+
+  replaceRequired(
+    "  if (musicNextBtn) musicNextBtn.addEventListener('click', () => nextGameMusic(true));",
+    "  if (musicNextBtn) musicNextBtn.addEventListener('click', () => nextGameMusic(musicShouldPlay && !paused && !gameOver));",
+    'next song guard'
+  );
+
+  replaceRequired(
+    "    else if (musicShouldPlay) musicWidget.play();",
+    "    else if (musicShouldPlay && !paused && !gameOver) musicWidget.play();",
+    'visibility music guard'
+  );
+
+  replaceRequired(
+    "    if (musicEnabled && musicShouldPlay) {",
+    "    if (musicEnabled && musicShouldPlay && !paused && !gameOver) {",
+    'toggle music guard'
+  );
+
+  replaceRequired(
+    "  loadCurrentMusicTrack(forcePlay && musicEnabled);",
+    "  loadCurrentMusicTrack(forcePlay && musicEnabled && !paused && !gameOver);",
+    'track load guard'
+  );
+
+  replaceRequired(
+`function stopGameMusic() {
+  musicShouldPlay = false;
+  if (!musicWidget || !musicReady) return;
+  try { musicWidget.pause(); } catch (e) {}
+}`,
+`function pauseGameMusic() {
+  if (!musicWidget || !musicReady) return;
+  try { musicWidget.pause(); } catch (e) {}
+}
+
+function resumeGameMusic() {
+  if (!musicShouldPlay || !musicEnabled || gameOver) return;
+  if (!musicWidget || !musicReady) return;
+  try {
+    musicWidget.setVolume(GAME_MUSIC_VOLUME);
+    musicWidget.play();
+  } catch (e) {}
+}
+
+function stopGameMusic() {
+  musicShouldPlay = false;
+  if (!musicWidget || !musicReady) return;
+  try { musicWidget.pause(); } catch (e) {}
+}`,
+    'music pause helpers'
+  );
+
+  replaceRequired(
+`  const forward = directionFromAngles(d.yaw, d.pitch);
+  d.speed = lerp(d.speed, dist < 130 ? 160 : 122 + wave * 3, dt * 0.55);
+  d.pos.addScaledVector(forward, d.speed * dt);
+  if (d.pos.y < world.minY + 14) { d.pos.y = world.minY + 14; d.pitch = Math.max(d.pitch, 0.08); }`,
+`  const forward = directionFromAngles(d.yaw, d.pitch);
+  d.speed = lerp(d.speed, dist < 130 ? 160 : 122 + wave * 3, dt * 0.55);
+  d.pos.addScaledVector(forward, d.speed * dt);
+  if (projectileHitMountain(d.pos, 5.8)) {
+    spawnExplosion(d.pos, 0x7fd8ff, 20, 1.05);
+    playGameSound('explosion', 0.72, 190, 0.18, 'sawtooth', 0.08);
+    scene.remove(d.group);
+    dragons = dragons.filter(x => x !== d);
+    showEvent('Enemy Jet Crashed', 'cool');
+    return;
+  }
+  if (d.pos.y < world.minY + 14) { d.pos.y = world.minY + 14; d.pitch = Math.max(d.pitch, 0.08); }`,
+    'enemy jet mountain crash'
+  );
+
+  replaceRequired(
+`  const forward = directionFromAngles(d.yaw, d.pitch);
+  const sizeT = clamp((displayScale - DRAGON_MIN_DISPLAY_SCALE) / (DRAGON_MAX_DISPLAY_SCALE - DRAGON_MIN_DISPLAY_SCALE), 0, 1);
+  d.speed = lerp(d.speed, (dist < 90 + displayScale * 4 ? 88 : 58 + wave * 2.5) * lerp(1.0, 0.68, sizeT), dt * 0.4);
+  d.pos.addScaledVector(forward, d.speed * dt);
+  if (d.pos.y < world.minY + 18) { d.pos.y = world.minY + 18; d.pitch = Math.max(d.pitch, 0.08); }`,
+`  const forward = directionFromAngles(d.yaw, d.pitch);
+  const sizeT = clamp((displayScale - DRAGON_MIN_DISPLAY_SCALE) / (DRAGON_MAX_DISPLAY_SCALE - DRAGON_MIN_DISPLAY_SCALE), 0, 1);
+  d.speed = lerp(d.speed, (dist < 90 + displayScale * 4 ? 88 : 58 + wave * 2.5) * lerp(1.0, 0.68, sizeT), dt * 0.4);
+  const dragonPreviousPos = d.pos.clone();
+  d.pos.addScaledVector(forward, d.speed * dt);
+  if (projectileHitMountain(d.pos, clamp(6.2 + displayScale * 0.42, 7.0, 11.5))) {
+    d.pos.copy(dragonPreviousPos);
+    d.pitch = Math.max(d.pitch, 0.16);
+    d.yaw += d.turnBias * 0.24;
+    d.speed *= 0.78;
+  }
+  if (d.pos.y < world.minY + 18) { d.pos.y = world.minY + 18; d.pitch = Math.max(d.pitch, 0.08); }`,
+    'enemy dragon mountain bounce'
+  );
+
+  const deathFunctions = String.raw`
+function createEjectedPilot() {
+  const group = new THREE.Group();
+  group.name = 'ejectedPilot';
+
+  const seatMat = new THREE.MeshStandardMaterial({ color: 0x343b42, roughness: 0.78, metalness: 0.18 });
+  const suitMat = new THREE.MeshStandardMaterial({ color: 0x68725f, roughness: 0.9 });
+  const helmetMat = new THREE.MeshStandardMaterial({ color: 0xe9edf0, roughness: 0.42, metalness: 0.08 });
+  const visorMat = new THREE.MeshStandardMaterial({ color: 0x172631, roughness: 0.18, metalness: 0.68 });
+
+  const seat = new THREE.Mesh(new THREE.BoxGeometry(1.15, 1.6, 0.75), seatMat);
+  seat.position.set(0, 0.25, 0.22);
+  seat.rotation.x = -0.12;
+  seat.castShadow = true;
+  group.add(seat);
+
+  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.38, 0.92, 5, 10), suitMat);
+  torso.position.set(0, 0.85, -0.16);
+  torso.castShadow = true;
+  group.add(torso);
+
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.38, 16, 10), helmetMat);
+  head.position.set(0, 1.82, -0.18);
+  head.castShadow = true;
+  group.add(head);
+
+  const visor = new THREE.Mesh(new THREE.SphereGeometry(0.29, 14, 8, 0, Math.PI * 2, 0, Math.PI * 0.58), visorMat);
+  visor.position.set(0, 1.78, -0.43);
+  visor.rotation.x = Math.PI * 0.42;
+  group.add(visor);
+
+  const armGeo = new THREE.CapsuleGeometry(0.12, 0.62, 4, 8);
+  for (const side of [-1, 1]) {
+    const arm = new THREE.Mesh(armGeo, suitMat);
+    arm.position.set(side * 0.49, 0.83, -0.11);
+    arm.rotation.z = side * -0.34;
+    arm.castShadow = true;
+    group.add(arm);
+
+    const leg = new THREE.Mesh(new THREE.CapsuleGeometry(0.14, 0.72, 4, 8), suitMat);
+    leg.position.set(side * 0.24, -0.42, -0.08);
+    leg.rotation.z = side * 0.12;
+    leg.castShadow = true;
+    group.add(leg);
   }
 
-  retryBtn.addEventListener('click', launch);
-  launch();
+  group.scale.setScalar(1.25);
+  return group;
+}
+
+function openEjectionParachute(sequence) {
+  if (!sequence || sequence.parachuteOpened) return;
+  sequence.parachuteOpened = true;
+  const chute = createProceduralParachute();
+  chute.name = 'ejectionParachute';
+  chute.position.y = 5.35;
+  chute.scale.setScalar(0.82);
+  sequence.group.add(chute);
+  sequence.parachute = chute;
+  sequence.velocity.y = Math.min(sequence.velocity.y, -2.5);
+  spawnSpark(sequence.position.clone().add(new THREE.Vector3(0, 5.2, 0)), 0xffffff, 0.55, 0.7);
+  playGameSound('boost', 0.42, 440, 0.12, 'triangle', 0.05);
+  showEvent('Parachute Deployed', 'cool');
+}
+
+function beginJetDeath(reason = 'Aircraft destroyed') {
+  if (jetDeathSequence || gameOver || !player || playerIsDragon()) return;
+
+  gameOver = true;
+  running = false;
+  paused = false;
+  input.firing = false;
+  input.missile = false;
+  input.boost = false;
+  input.rolling = false;
+  input.lookBack = false;
+  stopGameMusic();
+  pauseScreen.classList.remove('visible');
+  controls.classList.add('hidden');
+  if (missileBtn) missileBtn.classList.remove('armed');
+
+  const crashPos = player.pos.clone();
+  const forward = directionFromAngles(player.yaw, player.pitch).normalize();
+  const right = new THREE.Vector3(Math.cos(player.yaw), 0, -Math.sin(player.yaw)).normalize();
+
+  spawnExplosion(crashPos, 0xff9b32, 34, 1.15);
+  spawnExplosion(crashPos.clone().add(new THREE.Vector3(0, 1.2, 0)), 0xfff0a0, 22, 0.88);
+  for (let i = 0; i < 10; i++) {
+    spawnSpark(crashPos.clone().add(new THREE.Vector3(rand(-2, 2), rand(-1, 2), rand(-2, 2))), 0xffc05c, rand(0.25, 0.62), rand(0.45, 0.9));
+  }
+  playGameSound('explosion', 1.0, 62, 0.42, 'sawtooth', 0.13);
+
+  if (player.group) {
+    player.group.visible = false;
+    scene.remove(player.group);
+  }
+  player.health = 0;
+
+  const pilot = createEjectedPilot();
+  const pilotPos = crashPos.clone().add(new THREE.Vector3(0, 2.4, 0));
+  pilot.position.copy(pilotPos);
+  pilot.rotation.y = player.yaw;
+  scene.add(pilot);
+
+  jetDeathSequence = {
+    group: pilot,
+    position: pilotPos,
+    velocity: forward.clone().multiplyScalar(-9).add(new THREE.Vector3(0, 26, 0)),
+    forward: forward.clone(),
+    right,
+    time: 0,
+    parachuteOpened: false,
+    parachute: null,
+    reason
+  };
+
+  showEvent(reason === 'Mountain impact' ? 'Mountain Impact - Eject!' : 'Eject! Eject!', 'hot');
+}
+
+function updateJetDeathSequence(dt) {
+  const sequence = jetDeathSequence;
+  if (!sequence) return;
+
+  sequence.time += dt;
+  if (!sequence.parachuteOpened) {
+    sequence.velocity.y -= 24 * dt;
+    sequence.position.addScaledVector(sequence.velocity, dt);
+    sequence.group.rotation.x += dt * 1.25;
+    sequence.group.rotation.z += dt * 1.7;
+    if (sequence.time >= 0.48) openEjectionParachute(sequence);
+  } else {
+    const settle = 1 - Math.pow(0.025, dt);
+    sequence.velocity.x = lerp(sequence.velocity.x, 0, settle);
+    sequence.velocity.z = lerp(sequence.velocity.z, 0, settle);
+    sequence.velocity.y = lerp(sequence.velocity.y, -8.2, settle);
+    sequence.position.addScaledVector(sequence.velocity, dt);
+    sequence.group.rotation.x = lerp(sequence.group.rotation.x, 0, settle);
+    sequence.group.rotation.z = Math.sin(sequence.time * 3.1) * 0.10;
+    if (sequence.parachute) sequence.parachute.rotation.z = -sequence.group.rotation.z * 0.48;
+  }
+
+  sequence.position.y = Math.max(4, sequence.position.y);
+  sequence.group.position.copy(sequence.position);
+
+  const cameraTarget = sequence.position.clone()
+    .addScaledVector(sequence.forward, -24)
+    .addScaledVector(sequence.right, 12)
+    .add(new THREE.Vector3(0, 11, 0));
+  camera.position.lerp(cameraTarget, 1 - Math.pow(0.006, dt));
+  camera.lookAt(sequence.position.clone().add(new THREE.Vector3(0, 2.6, 0)));
+
+  updateParticles(dt);
+  updateContrails(dt);
+
+  if (messageTimer > 0) {
+    messageTimer -= dt;
+    if (messageTimer <= 0) messageEl.classList.remove('show');
+  }
+  if (eventTimer > 0) {
+    eventTimer -= dt;
+    if (eventTimer <= 0 && eventBannerEl) eventBannerEl.classList.remove('show');
+  }
+
+  if (sequence.time >= 2.7) finishJetDeathSequence();
+}
+
+function finishJetDeathSequence() {
+  const sequence = jetDeathSequence;
+  if (!sequence) return;
+
+  if (sequence.group) scene.remove(sequence.group);
+  jetDeathSequence = null;
+
+  if (gameMode === 'target') {
+    const bestText = targetBest ? ('Best: ' + formatTargetTime(targetBest)) : 'No best time yet';
+    finalScore.innerHTML = 'Jet lost at <b>' + formatTargetTime(targetElapsed) + '</b><span class="targetResult best">Pilot ejected safely</span><small style="display:block;margin-top:8px;color:rgba(239,232,214,.72)">' + bestText + '</small>';
+    configureGameOverMenu('target');
+  } else {
+    finalScore.innerHTML = 'Wave reached: <b>' + wave + '</b><span class="targetResult best">Pilot ejected safely</span><small style="display:block;margin-top:8px;color:rgba(239,232,214,.72)">' + sequence.reason + '</small>';
+    configureGameOverMenu(gameMode);
+  }
+
+  gameOverScreen.classList.add('visible');
+  controls.classList.add('hidden');
+  if (missileBtn) missileBtn.classList.remove('armed');
+}
+
+`;
+
+  replaceRequired(
+    'function completeTargetMode() {',
+    deathFunctions + 'function completeTargetMode() {',
+    'death sequence functions'
+  );
+
+  replaceRequired(
+    "  gameOver = true;\n  running = false;\n  const oldBest = targetBest;",
+    "  gameOver = true;\n  running = false;\n  stopGameMusic();\n  const oldBest = targetBest;",
+    'target completion music'
+  );
+
+  replaceRequired(
+    "function endGame() {\n  gameOver = true;\n  running = false;",
+    "function endGame() {\n  gameOver = true;\n  running = false;\n  stopGameMusic();",
+    'death music'
+  );
+
+  const required = [
+    '// JET_EJECTION_SEQUENCE_V2',
+    'pauseGameMusic();',
+    "beginJetDeath('Mountain impact')",
+    'Dragon bounced off mountain',
+    'Enemy Jet Crashed',
+    'function createEjectedPilot()',
+    'function openEjectionParachute(sequence)',
+    'sequence.time >= 2.7'
+  ];
+
+  for (const item of required) {
+    if (!text.includes(item)) throw new Error('Patch validation failed: ' + item);
+  }
+
+  return text;
+}
+
+
+const BASE_COMMIT = '4fbf477e95573b7956754988a63ce40204a3576e';
+const statusEl = document.getElementById('status');
+const retryBtn = document.getElementById('retry');
+
+function decodeBase64Utf8(value) {
+  const clean = value.replace(/\s/g, '');
+  const binary = atob(clean);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return new TextDecoder().decode(bytes);
+}
+
+async function fetchBaseGame() {
+  const apiUrl = 'https://api.github.com/repos/Brandon-Valley/JetsVsDragons/contents/index.html?ref=' + BASE_COMMIT;
+  try {
+    const response = await fetch(apiUrl, { cache: 'no-store', headers: { Accept: 'application/vnd.github+json' } });
+    if (!response.ok) throw new Error('GitHub API returned ' + response.status);
+    const data = await response.json();
+    if (!data || data.encoding !== 'base64' || !data.content) throw new Error('GitHub API returned invalid file data');
+    return decodeBase64Utf8(data.content);
+  } catch (apiError) {
+    const fallbackUrls = [
+      'https://cdn.jsdelivr.net/gh/Brandon-Valley/JetsVsDragons@' + BASE_COMMIT + '/index.html',
+      'https://raw.githubusercontent.com/Brandon-Valley/JetsVsDragons/' + BASE_COMMIT + '/index.html'
+    ];
+    let lastError = apiError;
+    for (const url of fallbackUrls) {
+      try {
+        const response = await fetch(url, { cache: 'no-store' });
+        if (!response.ok) throw new Error('Fallback returned ' + response.status);
+        return await response.text();
+      } catch (error) { lastError = error; }
+    }
+    throw lastError;
+  }
+}
+
+async function launch() {
+  retryBtn.style.display = 'none';
+  statusEl.textContent = 'Loading combat systems...';
+  try {
+    const source = await fetchBaseGame();
+    statusEl.textContent = 'Applying flight systems...';
+    const patched = patchGame(source);
+    const frame = document.createElement('iframe');
+    frame.id = 'gameFrame';
+    frame.title = 'Jets vs Dragons game';
+    frame.allow = 'autoplay; fullscreen';
+    document.body.appendChild(frame);
+    const frameDocument = frame.contentWindow.document;
+    frameDocument.open();
+    frameDocument.write(patched);
+    frameDocument.close();
+    document.getElementById('boot').remove();
+  } catch (error) {
+    console.error(error);
+    statusEl.textContent = 'The game could not launch: ' + (error && error.message ? error.message : String(error));
+    retryBtn.style.display = 'inline-block';
+  }
+}
+
+retryBtn.addEventListener('click', launch);
+launch();
 </script>
 </body>
 </html>
