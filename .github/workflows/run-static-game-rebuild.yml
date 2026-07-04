@@ -20,6 +20,19 @@ jobs:
       - name: Build complete static index
         run: |
           git show 4fbf477e95573b7956754988a63ce40204a3576e:index.html > index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('apply_static_patch.mjs')
+          script = path.read_text(encoding='utf-8')
+          search_from = script.index("'enemy jet mountain crash'")
+          start = script.index("replaceOnce(\n`  const forward", search_from)
+          end = script.index("\n\nconst deathFunctions", start)
+          block = script[start:end]
+          block = block.replace("`  const forward", "`    const forward")
+          block = block.replace("\n  ", "\n    ")
+          path.write_text(script[:start] + block + script[end:], encoding='utf-8')
+          PY
+          node --check apply_static_patch.mjs
           node apply_static_patch.mjs
 
       - name: Validate complete game
@@ -45,10 +58,12 @@ jobs:
 
       - name: Commit only finished static game
         run: |
-          rm -f apply_static_patch.mjs static-build-debug.txt
+          rm -f apply_static_patch.mjs static-build-debug.txt static-patch-error.txt
           rm -f .github/workflows/static-game-rebuild.yml
           rm -f .github/workflows/debug-static-rebuild.yml
           rm -f .github/workflows/run-static-game-rebuild.yml
+          rm -f .github/workflows/capture-static-error.yml
+          rm -f .github/workflows/show-static-error.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
