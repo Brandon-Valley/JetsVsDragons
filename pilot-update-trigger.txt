@@ -1,1 +1,0 @@
-This temporary trigger file will be removed by the update workflow.
