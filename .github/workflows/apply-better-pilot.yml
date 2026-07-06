@@ -51,7 +51,7 @@ jobs:
 
       - name: Commit finished index directly to master
         run: |
-          rm -f apply_better_pilot.mjs
+          rm -f apply_better_pilot.mjs pilot-update-trigger.txt
           rm -f .github/workflows/apply-better-pilot.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
