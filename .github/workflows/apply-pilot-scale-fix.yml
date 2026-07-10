@@ -1,15 +1,18 @@
 name: Apply pilot scale fix
 
 on:
-  pull_request:
-    types: [opened]
+  push:
+    branches:
+      - master
+    paths:
+      - pilot-scale-final-trigger.txt
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
   update:
-    if: github.event.pull_request.title == 'Apply JetsVsDragons pilot scale fix'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -60,6 +63,7 @@ jobs:
       - name: Commit finished index directly to master
         run: |
           rm -f apply_pilot_scale_fix.mjs
+          rm -f pilot-scale-trigger.txt pilot-scale-run.txt pilot-scale-pr.txt pilot-scale-pr2.txt pilot-scale-pr3.txt pilot-scale-pr4.txt pilot-scale-pr5.txt pilot-scale-final-trigger.txt
           rm -f .github/workflows/apply-pilot-scale-fix.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
