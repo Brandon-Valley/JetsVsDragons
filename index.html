@@ -793,6 +793,9 @@ const JET_HIT_RADIUS = 7.5;
 const SUPPLY_DROP_HEAL = 32;
 const SUPPLY_DROP_MIN_TIME = 110;
 const SUPPLY_DROP_MAX_TIME = 130;
+const EJECTED_PILOT_HEIGHT = 1.45; // PILOT_SCALE_FIX_V1
+const EJECTION_PARACHUTE_SCALE = 1.22;
+const EJECTION_PARACHUTE_Y = 2.42;
 
 const canvas = document.getElementById('game');
 const startScreen = document.getElementById('startScreen');
@@ -3784,9 +3787,9 @@ function preparePilotCharacter(root) {
   const box = new THREE.Box3().setFromObject(asset);
   const size = box.getSize(new THREE.Vector3());
   const center = box.getCenter(new THREE.Vector3());
-  const scale = 3.75 / Math.max(size.y || 1, 0.001);
+  const scale = EJECTED_PILOT_HEIGHT / Math.max(size.y || 1, 0.001);
   asset.scale.setScalar(scale);
-  asset.position.set(-center.x * scale, -box.min.y * scale - 1.10, -center.z * scale);
+  asset.position.set(-center.x * scale, -box.min.y * scale - 0.18, -center.z * scale);
   asset.rotation.y = Math.PI;
   return asset;
 }
@@ -3797,27 +3800,27 @@ function createFallbackPilotModel() {
   const bootMat = new THREE.MeshStandardMaterial({ color: 0x1c211f, roughness: 0.94 });
   const helmetMat = new THREE.MeshStandardMaterial({ color: 0xdfe4e7, roughness: 0.45, metalness: 0.08 });
   const visorMat = new THREE.MeshStandardMaterial({ color: 0x172631, roughness: 0.16, metalness: 0.72 });
-  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.38, 1.10, 8, 14), suitMat);
-  torso.position.y = 0.62;
+  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.22, 0.64, 8, 14), suitMat);
+  torso.position.y = 0.36;
   pilot.add(torso);
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.40, 18, 12), helmetMat);
-  head.position.y = 1.72;
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.24, 18, 12), helmetMat);
+  head.position.y = 0.98;
   pilot.add(head);
-  const visor = new THREE.Mesh(new THREE.SphereGeometry(0.31, 16, 10, 0, Math.PI * 2, 0, Math.PI * 0.58), visorMat);
-  visor.position.set(0, 1.68, -0.30);
+  const visor = new THREE.Mesh(new THREE.SphereGeometry(0.18, 16, 10, 0, Math.PI * 2, 0, Math.PI * 0.58), visorMat);
+  visor.position.set(0, 0.96, -0.18);
   visor.rotation.x = Math.PI * 0.40;
   pilot.add(visor);
   for (const side of [-1, 1]) {
-    const arm = new THREE.Mesh(new THREE.CapsuleGeometry(0.12, 0.72, 6, 10), suitMat);
-    arm.position.set(side * 0.48, 0.66, 0);
+    const arm = new THREE.Mesh(new THREE.CapsuleGeometry(0.07, 0.42, 6, 10), suitMat);
+    arm.position.set(side * 0.28, 0.38, 0);
     arm.rotation.z = side * -0.22;
     pilot.add(arm);
-    const leg = new THREE.Mesh(new THREE.CapsuleGeometry(0.15, 0.90, 6, 10), suitMat);
-    leg.position.set(side * 0.22, -0.66, 0);
+    const leg = new THREE.Mesh(new THREE.CapsuleGeometry(0.09, 0.52, 6, 10), suitMat);
+    leg.position.set(side * 0.13, -0.38, 0);
     leg.rotation.z = side * 0.08;
     pilot.add(leg);
-    const boot = new THREE.Mesh(new THREE.BoxGeometry(0.30, 0.24, 0.58), bootMat);
-    boot.position.set(side * 0.22, -1.24, -0.15);
+    const boot = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.14, 0.34), bootMat);
+    boot.position.set(side * 0.13, -0.72, -0.09);
     pilot.add(boot);
   }
   return pilot;
@@ -3828,16 +3831,16 @@ function createEjectedPilot() {
   group.name = 'ejectedPilot';
 
   const seatMat = new THREE.MeshStandardMaterial({ color: 0x30363b, roughness: 0.74, metalness: 0.24 });
-  const seat = new THREE.Mesh(new THREE.BoxGeometry(1.20, 1.72, 0.78), seatMat);
+  const seat = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.92, 0.44), seatMat);
   seat.name = 'ejectionSeat';
-  seat.position.set(0, 0.18, 0.42);
+  seat.position.set(0, 0.02, 0.24);
   seat.rotation.x = -0.12;
   seat.castShadow = true;
   group.add(seat);
 
   const pilotModel = pilotAsset ? SkeletonUtils.clone(pilotAsset) : createFallbackPilotModel();
   pilotModel.name = 'pilotModel';
-  pilotModel.position.z -= 0.18;
+  pilotModel.position.set(0, -0.08, -0.06);
   group.add(pilotModel);
 
   if (pilotAsset && pilotAnimationClips.length) {
@@ -3855,13 +3858,13 @@ function createEjectedPilot() {
 
   const harnessMat = new THREE.MeshStandardMaterial({ color: 0x2c3026, roughness: 0.92 });
   for (const side of [-1, 1]) {
-    const strap = new THREE.Mesh(new THREE.BoxGeometry(0.09, 2.10, 0.08), harnessMat);
-    strap.position.set(side * 0.36, 0.62, -0.42);
+    const strap = new THREE.Mesh(new THREE.BoxGeometry(0.045, 1.18, 0.045), harnessMat);
+    strap.position.set(side * 0.20, 0.32, -0.24);
     strap.rotation.z = side * -0.10;
     group.add(strap);
   }
-  const chestStrap = new THREE.Mesh(new THREE.BoxGeometry(0.82, 0.10, 0.08), harnessMat);
-  chestStrap.position.set(0, 0.72, -0.44);
+  const chestStrap = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.055, 0.045), harnessMat);
+  chestStrap.position.set(0, 0.38, -0.25);
   group.add(chestStrap);
 
   return group;
@@ -3874,8 +3877,8 @@ function openEjectionParachute(sequence) {
   if (ejectionSeat) ejectionSeat.visible = false;
   const chute = createProceduralParachute();
   chute.name = 'ejectionParachute';
-  chute.position.y = 5.35;
-  chute.scale.setScalar(0.82);
+  chute.position.y = EJECTION_PARACHUTE_Y;
+  chute.scale.setScalar(EJECTION_PARACHUTE_SCALE);
   sequence.group.add(chute);
   sequence.parachute = chute;
   sequence.velocity.y = Math.min(sequence.velocity.y, -2.5);
@@ -3955,7 +3958,10 @@ function updateJetDeathSequence(dt) {
     sequence.position.addScaledVector(sequence.velocity, dt);
     sequence.group.rotation.x = lerp(sequence.group.rotation.x, 0, settle);
     sequence.group.rotation.z = Math.sin(sequence.time * 3.1) * 0.10;
-    if (sequence.parachute) sequence.parachute.rotation.z = -sequence.group.rotation.z * 0.48;
+    if (sequence.parachute) {
+      sequence.parachute.rotation.z = -sequence.group.rotation.z * 0.48;
+      sequence.parachute.position.y = EJECTION_PARACHUTE_Y + Math.sin(sequence.time * 2.2) * 0.045;
+    }
   }
   sequence.position.y = Math.max(4, sequence.position.y);
   sequence.group.position.copy(sequence.position);
